@@ -2,180 +2,168 @@ import 'package:flutter/material.dart';
 
 void main() => runApp(MyApp());
 
-// Argumentos para a tela de detalhes
-class DetailArguments {
-  final String title;
-  final String message;
-  final String caminho;
-  DetailArguments(this.title, this.message, this.caminho);
+// Um modelo simples para representar uma tarefa
+class Task {
+  String title;
+  bool isDone;
+
+  Task({required this.title, this.isDone = false});
 }
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Demo Rotas Flutter',
-      initialRoute: '/',
-      routes: {
-        '/': (context) => HomeScreen(),
-        '/intermediariaNomeada': (context) => IntermediariaNomeadaScreen(),
-        '/detailsNomeada': (context) => DetailScreen(),
-      },
-      onGenerateRoute: (settings) {
-        if (settings.name == '/detailsNomeada') {
-          final args = settings.arguments as DetailArguments;
-          return MaterialPageRoute(
-            builder: (context) => DetailScreen(args: args),
-          );
-        }
-        return null;
-      },
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Home')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Escolha um caminho:', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 20),
-            ElevatedButton(
-              child: Text('Caminho PUSH'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => IntermediariaPushScreen(),
-                  ),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: Text('Caminho ROTA NOMEADA'),
-              onPressed: () {
-                Navigator.pushNamed(context, '/intermediariaNomeada');
-              },
-            ),
-          ],
-        ),
+      title: 'Hello Flutter',
+      theme: ThemeData(
+        primarySwatch: Colors.indigo,
+        scaffoldBackgroundColor: Colors.grey[100],
       ),
+      home: TaskListScreen(),
     );
   }
 }
 
-// Caminho intermediário via push
-class IntermediariaPushScreen extends StatelessWidget {
+class TaskListScreen extends StatefulWidget {
+  @override
+  State<TaskListScreen> createState() => _TaskListScreenState();
+}
+
+class _TaskListScreenState extends State<TaskListScreen> {
+  // Agora usamos uma lista de objetos Task
+  final List<Task> _tasks = [
+    Task(title: 'Estudar Flutter', isDone: true),
+    Task(title: 'Ler documentação'),
+    Task(title: 'Praticar layouts'),
+  ];
+
+  final TextEditingController _controller = TextEditingController();
+
+  void _addTask() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _tasks.add(Task(title: text));
+    });
+    _controller.clear();
+    FocusScope.of(context).unfocus(); // Esconde o teclado
+  }
+
+  void _removeTask(int index) {
+    setState(() {
+      _tasks.removeAt(index);
+    });
+  }
+
+  void _toggleTaskStatus(int index) {
+    setState(() {
+      _tasks[index].isDone = !_tasks[index].isDone;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Intermediária (push)')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Você chegou aqui usando PUSH!', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 20),
-            ElevatedButton(
-              child: Text('Ir para Detalhes (push)'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => DetailScreen(
-                      args: DetailArguments(
-                        'Detalhes via push',
-                        'Chegou aqui usando apenas push!',
-                        'Home > Intermediária (push) > Detalhes (push)',
+      appBar: AppBar(
+        title: Text('Hello Flutter - Lista de Tarefas'),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: 'Digite uma nova tarefa',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onSubmitted: (_) => _addTask(),
+                  ),
+                ),
+                SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _addTask,
+                  child: Icon(Icons.add),
+                  style: ElevatedButton.styleFrom(
+                    shape: CircleBorder(),
+                    padding: EdgeInsets.all(12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              // Usamos ListView.separated para adicionar um espaço entre os itens
+              child: ListView.separated(
+                itemCount: _tasks.length,
+                separatorBuilder: (context, index) => SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final task = _tasks[index];
+                  // Dismissible permite deslizar para excluir
+                  return Dismissible(
+                    key: Key(task.title + index.toString()), // Chave única para o widget
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (direction) {
+                      _removeTask(index);
+                      // Mostra um feedback visual rápido
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${task.title} removida!')),
+                      );
+                    },
+                    background: Container(
+                      color: Colors.red[400],
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      alignment: Alignment.centerRight,
+                      child: Icon(Icons.delete_sweep, color: Colors.white),
+                      // Usando o mesmo borderRadius do Card
+                      // NOTA: Para um efeito visual melhor, o borderRadius deveria estar no Card/ListTile,
+                      // mas para simplicidade, a cor de fundo já ajuda.
+                    ),
+                    child: Card(
+                      elevation: 4,
+                      shadowColor: Colors.black26,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: ListTile(
+                        // Checkbox para marcar como concluída
+                        leading: Checkbox(
+                          value: task.isDone,
+                          onChanged: (bool? value) {
+                            _toggleTaskStatus(index);
+                          },
+                        ),
+                        title: Text(
+                          task.title,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: task.isDone ? Colors.grey : Colors.indigo[900],
+                            // Adiciona um risco no texto se a tarefa estiver concluída
+                            decoration: task.isDone
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-            ElevatedButton(
-              child: Text('Voltar'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Caminho intermediário via rota nomeada
-class IntermediariaNomeadaScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Intermediária (rota nomeada)')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Você chegou aqui usando ROTA NOMEADA!', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 20),
-            ElevatedButton(
-              child: Text('Ir para Detalhes (rota nomeada)'),
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  '/detailsNomeada',
-                  arguments: DetailArguments(
-                    'Detalhes via rota nomeada',
-                    'Chegou aqui usando apenas rotas nomeadas!',
-                    'Home > Intermediária (rota nomeada) > Detalhes (rota nomeada)',
-                  ),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: Text('Voltar'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Tela de detalhes (usada para ambos os caminhos)
-class DetailScreen extends StatelessWidget {
-  final DetailArguments? args;
-  const DetailScreen({Key? key, this.args}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final DetailArguments arguments =
-        args ?? ModalRoute.of(context)!.settings.arguments as DetailArguments;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(arguments.title)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(arguments.message, style: TextStyle(fontSize: 20)),
-            SizedBox(height: 10),
-            Text('Caminho: ${arguments.caminho}', style: TextStyle(fontSize: 14, color: Colors.grey)),
-            SizedBox(height: 20),
-            ElevatedButton(
-              child: Text('Voltar'),
-              onPressed: () => Navigator.pop(context),
-            ),
-            ElevatedButton(
-              child: Text('Voltar para o início'),
-              onPressed: () => Navigator.popUntil(context, ModalRoute.withName('/')),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
